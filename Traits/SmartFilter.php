@@ -148,7 +148,16 @@ trait SmartFilter
                 }
                 break;
             case 'date':
-                $query->whereDate($attribute, $value);
+                if (is_array($value)) {
+                    if (isset($value['date_from']) && isset($value['date_to'])) {
+                        $query->whereBetween($attribute, [$value['date_from'], $value['date_to']]);
+                    } elseif (isset($value['date_from'])) {
+                        $query->whereDate($attribute, '>=', $value['date_from']);
+                    } elseif (isset($value['date_to'])) {
+                        $query->whereDate($attribute, '<=', $value['date_to']);
+                    }
+                }
+
                 break;
             default:
                 // Unsupported operation or undefined operation
