@@ -56,6 +56,7 @@ trait SmartFilter
 
             if (count($parts) > 1 && array_key_exists($attribute, $this->filterableAttributes)) {
                 $nestedKey = implode('.', array_slice($parts, 1));
+
                 $operation = $this->filterableAttributes[$attribute]['operation'] ?? null;
 
                 if (isset($filters[$key])) {
@@ -66,7 +67,6 @@ trait SmartFilter
                 $nestedFilters[$nestedKey]['table'] = $this->filterableAttributes[$attribute]['table'] ?? null;
             }
         }
-
         return $nestedFilters;
     }
 
@@ -115,9 +115,21 @@ trait SmartFilter
         if (count($parts) > 0) {
             // Nested attribute filtering
             $relatedAttribute = implode('.', $parts);
-            $query->whereHas($attributeName, function ($query) use ($relatedAttribute, $value, $operation) {
-                $this->applyAttributeFilter($query, $relatedAttribute, $value, $operation);
-            });
+
+            $partsSubChild = explode('.', $relatedAttribute);
+            $attributeSubChildName = array_shift($partsSubChild);
+            if (count($partsSubChild) > 0) {
+                $relatedAttributeSubChild = implode('.', $partsSubChild);
+                $query->whereHas($attributeName, function ($query) use ($relatedAttributeSubChild, $value, $operation, $attributeSubChildName) {
+                    $query->whereHas($attributeSubChildName, function ($query) use ($relatedAttributeSubChild, $value, $operation) {
+                        $this->applyAttributeFilter($query, $relatedAttributeSubChild, $value, $operation);
+                    });
+                });
+            } else {
+                $query->whereHas($attributeName, function ($query) use ($relatedAttribute, $value, $operation) {
+                    $this->applyAttributeFilter($query, $relatedAttribute, $value, $operation);
+                });
+            }
         } else {
             $this->applyAttributeFilter($query, $attribute, $value, $operation);
         }
@@ -157,7 +169,6 @@ trait SmartFilter
                         $query->whereDate($attribute, '<=', $value['date_to']);
                     }
                 }
-
                 break;
             default:
                 // Unsupported operation or undefined operation
